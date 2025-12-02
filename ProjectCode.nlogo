@@ -17,7 +17,7 @@ to setup
 
 
   ; Damn this took way to long to figure out... Had to try every kind of thing...
-  let color-buffer 100000
+  let color-buffer 250000
 
   ifelse length all-pops > 0
     [
@@ -94,8 +94,8 @@ end
 GRAPHICS-WINDOW
 210
 10
-1234
-1037
+1223
+1024
 -1
 -1
 5.0
