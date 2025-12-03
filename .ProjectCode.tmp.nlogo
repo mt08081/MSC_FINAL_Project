@@ -1,11 +1,36 @@
 extensions [ gis ]
 
-globals [ pak-dataset max-pop ]
+globals [
+  pak-dataset
+  max-pop
+  ; added just now
+  ; viz-mode       ; "Religion" or "Language"
+  ; rel-focus      ; "Muslim", "Hindu", or "Christian"
+  ; lang-focus     ; "Urdu", "Sindhi", or "Pashto"
+
+  agent-scale    ; How many people 1 agent equals (e.g., 10000)
+]
+
+; added just now
+breed [ households household ]
+
+households-own [
+  religion       ; "Muslim", "Hindu", "Christian"
+  language       ; "Urdu", "Sindhi", "Pashto"
+  my-region      ; The name of the region (ADM3) I belong to
+]
+
+patches-own [
+  p-region-name  ; The region this patch belongs to (for fast lookups)
+  is-habitable?  ; True if inside a region
+]
+
+;;;;; end new additions
 
 to setup
   ca
   ; 1. Load the dataset
-  set pak-dataset gis:load-dataset "karachi_census_merged_.shp"
+  set pak-dataset gis:load-dataset "karachi_census_merged_fixed.shp"
   gis:set-world-envelope (gis:envelope-of pak-dataset)
 
   ; 2. Calculate Max Population
@@ -50,6 +75,9 @@ to setup
   ]
 end
 
+;; Issue: The summation of language OR religion based population is less than the total population of the region
+;; The reason for this is that we are not accounting for all the data inside the census data which includes minorities etc
+
 to mouse-click-action
   if mouse-down? [
     let x mouse-xcor
@@ -68,7 +96,7 @@ to mouse-click-action
         let pashto gis:property-value f "Pashto_Pop"
         let muslim gis:property-value f "Muslim_Pop"
         let hindu gis:property-value f "Hindu_Pop"
-        let christian gis:property-value f "Christian_Pop"
+        let christian gis:property-value f "ChristianP"
         let district gis:property-value f "District"
 
         ifelse is-number? total [
@@ -101,6 +129,251 @@ to mouse-click-action
 
     wait 0.5
   ]
+end
+
+to mouse-click-action-v2
+  if mouse-down? [
+    ; 1. Identify where we clicked (Instant lookup via patch variable)
+    let clicked-patch patch mouse-xcor mouse-ycor
+
+    ifelse [ is-habitable? ] of clicked-patch [
+      let r-name [ p-region-name ] of clicked-patch
+
+      ; 2. Count LIVE agents in this region (The Simulation State)
+      let region-agents households with [ my-region = r-name ]
+      let total-agents count region-agents
+
+      ; 3. Build the Display Message
+      let msg (word "Region: " r-name "\n"
+                    "------------------------\n"
+                    "Total Agents: " total-agents "\n"
+                    "Est. Population: " (total-agents * agent-scale) "\n"
+                    "\n")
+
+      ; 4. Add Context Specific Data (Based on your Choosers)
+      if viz-mode = "Religion" [
+        let focus-count count region-agents with [ religion = rel-focus ]
+        let pct 0
+        if total-agents > 0 [ set pct (focus-count / total-agents) * 100 ]
+
+        set msg (word msg
+          "VIEW MODE: RELIGION\n"
+          "Focus Group: " rel-focus "\n"
+          "Group Count: " focus-count " (" (focus-count * agent-scale) ")\n"
+          "Regional Share: " precision pct 2 "%"
+        )
+      ]
+
+      if viz-mode = "Language" [
+        let focus-count count region-agents with [ language = lang-focus ]
+        let pct 0
+        if total-agents > 0 [ set pct (focus-count / total-agents) * 100 ]
+
+        set msg (word msg
+          "VIEW MODE: LANGUAGE\n"
+          "Focus Group: " lang-focus "\n"
+          "Group Count: " focus-count " (" (focus-count * agent-scale) ")\n"
+          "Regional Share: " precision pct 2 "%"
+        )
+      ]
+
+      user-message msg
+    ]
+    [
+      ; Clicked on black/void space
+      user-message "Zone: Void / Cantonment (No Data)"
+    ]
+
+    ; Prevent spamming clicks
+    wait 0.5
+  ]
+end
+
+;;;;;; New additions (spawning of agents etc)
+
+to setup2
+  ca
+  ; Adjust this: Lower = More agents (Laggy), Higher = Fewer agents (Abstract)
+  set agent-scale 5000
+
+  ; Data
+  set pak-dataset gis:load-dataset "karachi_census_merged_fixed.shp"
+  gis:set-world-envelope (gis:envelope-of pak-dataset)
+
+  ; Map patches to map (region) for household plotting
+  print "Mapping patches to regions..."
+  map-patches-to-regions
+
+  print "Spawning agents..."
+  ;spawn-agents
+  spawn-agents-v2
+
+  update-visualization
+  reset-ticks
+end
+
+
+to map-patches-to-regions
+  ; clear previous state --- Make everything inhabited and nameless regions for replotting and reassigmnent of agents... behaves like clear-all
+  ask patches [
+    set is-habitable? false
+    set p-region-name ""
+  ]
+
+  foreach gis:feature-list-of pak-dataset [ f ->
+    let region-name gis:property-value f "ADM3_EN"
+
+    ; Asks patches covered by the polygon to identify themselves
+    ask patches gis:intersecting f [
+      set is-habitable? true
+      set p-region-name region-name
+    ]
+    gis:set-drawing-color white
+    gis:draw f 1
+  ]
+end
+
+to spawn-agents-v2
+  foreach gis:feature-list-of pak-dataset [ f ->
+    let region-name gis:property-value f "ADM3_EN"
+    let total-pop gis:property-value f "Total_Pop"
+
+    if is-number? total-pop [
+      let num-agents floor (total-pop / agent-scale)
+
+      ; Calculate Probabilities for this region
+      let p-muslim (gis:property-value f "Muslim_Pop") / total-pop
+      let p-hindu  (gis:property-value f "Hindu_Pop") / total-pop
+      let p-christian (gis:property-value f "ChristianP") / total-pop
+      ; Others would be the remainder of the population (can be added in the choices)
+
+      let p-urdu   (gis:property-value f "Urdu_Pop") / total-pop
+      let p-sindhi (gis:property-value f "Sindhi_Pop") / total-pop
+      let p-pashto (gis:property-value f "Pashto_Pop") / total-pop
+      ; Others would be the remainder of the population (can be added in the choices)
+
+      let region-patches patches with [ p-region-name = region-name ]
+
+      ; This is done so that households don't sprout at the edges
+      let interior-patches region-patches with [
+        count neighbors with [ p-region-name = region-name ] = 8
+      ]
+
+      ; If space is full then we need a fallback strat
+      let valid-patches interior-patches
+
+      if count valid-patches < num-agents [
+        set valid-patches region-patches
+      ]
+
+      if any? valid-patches [
+        ask n-of (min list num-agents count valid-patches) valid-patches [
+           sprout-households 1 [
+             set size 1.5
+             set my-region region-name
+             set shape "circle"
+
+             ; Probabilistic Assignment (based on the data embedded in the shapefile)
+             let r-rnd random-float 1.0
+             ifelse r-rnd < p-muslim [ set religion "Muslim" ]
+             [ ifelse r-rnd < (p-muslim + p-hindu) [ set religion "Hindu" ]
+              [ ifelse r-rnd < (p-muslim + p-hindu + p-christian) [ set religion "Christian" ] [ set religion "Other" ] ] ]
+
+             let l-rnd random-float 1.0
+             ifelse l-rnd < p-urdu [ set language "Urdu" ]
+             [ ifelse l-rnd < (p-urdu + p-sindhi) [ set language "Sindhi" ]
+               [ ifelse l-rnd < (p-urdu + p-sindhi + p-pashto) [ set language "Pashto" ] [ set language "Other" ] ]
+             ]
+           ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to update-visualization
+  ; Agents
+  ask households [
+    ifelse viz-mode = "Religion" [
+      ; In Religion Mode
+      ifelse religion = rel-focus
+        [ show-turtle set color get-color-for-religion religion ]
+        [ hide-turtle ]
+    ]
+    [
+      ; In Language Mode
+      ifelse language = lang-focus
+        [ show-turtle set color get-color-for-language language ]
+        [ hide-turtle ]
+    ]
+  ]
+
+  ; Map Recoloring
+  foreach gis:feature-list-of pak-dataset [ f ->
+    let region-name gis:property-value f "ADM3_EN"
+
+    ; Count agents (at any tick)
+    let total-here count households with [ my-region = region-name ]
+
+    let focus-count 0
+    if viz-mode = "Religion" [
+       set focus-count count households with [ my-region = region-name and religion = rel-focus ]
+    ]
+    if viz-mode = "Language" [
+       set focus-count count households with [ my-region = region-name and language = lang-focus ]
+    ]
+
+    ; let color-buffer 10
+
+    ifelse total-here > 0 [
+      ; let ratio focus-count / ( total-here + color-buffer)
+      let ratio focus-count / total-here
+
+      ; Scale White -> Chosen Color
+      ;; Christian and Hindu population is very small so we have to use a shifted color-scale ratio for visual enhancement!!!
+      ifelse viz-mode = "Religion" and rel-focus != "Muslim" [
+        gis:set-drawing-color scale-color red ratio 0.15 0
+      ]
+      [
+        gis:set-drawing-color scale-color red ratio 1 0
+      ]
+
+      ; Note: You can change 'red' to a variable base-color if you want different maps for diff choices
+      gis:fill f 255
+    ] [
+      ; Fill empty spaces (insignificant number of a certain population in a region)
+      gis:set-drawing-color white
+      gis:fill f 255
+    ]
+
+    ; Muslim population is extremely dominant... It is necessary to perform this for visual clarity
+    ifelse viz-mode = "Religion" and rel-focus = "Muslim" [
+      gis:set-drawing-color white
+      gis:draw f 1.5
+    ]
+    [
+      ; Boundaries of the regions
+      gis:set-drawing-color black
+      gis:draw f 1.5
+    ]
+  ]
+end
+
+;; We can edit these colors... we can also keep just one color for all agents regardless of choosen factors so that the visual contrast is right
+to-report get-color-for-religion [ r ]
+  if r = "Muslim" [ report green ]
+  if r = "Hindu" [ report orange ]
+  if r = "Christian" [ report blue ]
+  ; default case for others
+  report grey
+end
+
+to-report get-color-for-language [ l ]
+  if l = "Urdu" [ report blue ]
+  if l = "Sindhi" [ report yellow ]
+  if l = "Pashto" [ report red ]
+  ; default case for others
+  report grey
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -154,6 +427,70 @@ BUTTON
 156
 NIL
 mouse-click-action
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+50
+202
+175
+237
+Setup2 (Testing)
+setup2
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+CHOOSER
+1266
+80
+1369
+126
+viz-mode
+viz-mode
+"Religion" "Language"
+1
+
+CHOOSER
+1269
+173
+1408
+219
+rel-focus
+rel-focus
+"Muslim" "Hindu" "Christian"
+2
+
+CHOOSER
+1276
+272
+1415
+318
+lang-focus
+lang-focus
+"Urdu" "Sindhi" "Pashto"
+0
+
+BUTTON
+52
+269
+177
+304
+Mouse Clicker v2
+mouse-click-action-v2
 T
 1
 T
