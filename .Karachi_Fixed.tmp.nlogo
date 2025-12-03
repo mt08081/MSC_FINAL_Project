@@ -403,20 +403,20 @@ PENS
 "index" 1.0 0 -2674135 true "" "plot segregation-index"
 
 TEXTBOX
-1240
-88
-1438
-226
+20
+850
+190
+900
 SHAPES:\nCircle = Muslim\nSquare = Christian\nTriangle = Hindu
 11
 0.0
 1
 
 TEXTBOX
-1239
-15
-1409
-134
+20
+910
+190
+960
 COLORS:\nBlue = Urdu\nGreen = Punjabi\nYellow = Sindhi
 11
 0.0
