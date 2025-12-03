@@ -5,7 +5,7 @@ globals [ pak-dataset max-pop ]
 to setup
   ca
   ; 1. Load the dataset
-  set pak-dataset gis:load-dataset "karachi_census_merged_fixed.shp"
+  set pak-dataset gis:load-dataset "karachi_census_merged_.shp"
   gis:set-world-envelope (gis:envelope-of pak-dataset)
 
   ; 2. Calculate Max Population
@@ -68,7 +68,7 @@ to mouse-click-action
         let pashto gis:property-value f "Pashto_Pop"
         let muslim gis:property-value f "Muslim_Pop"
         let hindu gis:property-value f "Hindu_Pop"
-        let christian gis:property-value f "ChristianP"
+        let christian gis:property-value f "Christian_Pop"
         let district gis:property-value f "District"
 
         ifelse is-number? total [
