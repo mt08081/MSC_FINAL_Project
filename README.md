@@ -24,3 +24,21 @@ After that, I spent quite some time trying to load the shapefile up in NetLogo. 
 this result:
 
 ![Initial Color-based representation for the population distribution of Karachi](https://github.com/user-attachments/assets/59dc4a90-da30-4df2-85db-e84db13f52e8)
+
+We will be designing the model now. We had another short meeting with Professor Jamali where she highlighted that exploring religious segregation might not be a very simple task. Some religious people live in small enclaves and groups around their specific dedicated prayer areas. We might introduce economic factors.
+
+We have decided the following:
+- 1 tick represents a year (people don't move about that often)
+- Rather than neighbourhood-based segregation, we can have region-based segregation instead. This solves the issue of having enough people on the map and observing segregational visuals.
+- For visualizing, we will have three choosers (Only a visual change):
+  - `rel_lan_choose`: Choose between religion and language
+  - `lan_choice`: Choose between the many languages being expressed in the model
+  - `rel_choice`: Choose between the many religion being expressed in the model
+- Heat Map (the same one being used can be used with different coloring schemes for different choices)
+- Agents would be region-based. They would be populated based on current region population / some divider (for normalization of the agents; We can't populate 20 million agents!!!)
+- Agents would decide to move on the basis of certain threshold parameters:
+  - `Religious Tolerance`
+  - `Linguistic Tolerance`
+- These tolerances will be then compared with the ratios of the population of Religion/Language in the region of the agent to the total population in that region `(Pop Regional Metric / Total Regional Pop)`
+- For now, the entire block of agents representing a larger population would move to a random new location.
+- We will also be mapping population changes using census data: Birth Rates and Death Rates (These can also be parametrized)
