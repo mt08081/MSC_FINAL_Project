@@ -1,4 +1,4 @@
-<img width="702" height="702" alt="image" src="https://github.com/user-attachments/assets/88c7cd5b-9ffa-45ca-8e48-7cdfc6c099a8" /># Journey
+# Journey
 
 ## Update 1
 
