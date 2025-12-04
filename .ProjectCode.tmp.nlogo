@@ -133,24 +133,23 @@ end
 
 to mouse-click-action-v2
   if mouse-down? [
-    ; 1. Identify where we clicked (Instant lookup via patch variable)
+    ; Identify where we clicked
     let clicked-patch patch mouse-xcor mouse-ycor
 
     ifelse [ is-habitable? ] of clicked-patch [
       let r-name [ p-region-name ] of clicked-patch
 
-      ; 2. Count LIVE agents in this region (The Simulation State)
+      ; Count LIVE agents
       let region-agents households with [ my-region = r-name ]
       let total-agents count region-agents
 
-      ; 3. Build the Display Message
       let msg (word "Region: " r-name "\n"
                     "------------------------\n"
                     "Total Agents: " total-agents "\n"
                     "Est. Population: " (total-agents * agent-scale) "\n"
                     "\n")
 
-      ; 4. Add Context Specific Data (Based on your Choosers)
+      ; Based on Choosers
       if viz-mode = "Religion" [
         let focus-count count region-agents with [ religion = rel-focus ]
         let pct 0
@@ -184,7 +183,7 @@ to mouse-click-action-v2
       user-message "Zone: Void / Cantonment (No Data)"
     ]
 
-    ; Prevent spamming clicks
+    ; Prevent spamming
     wait 0.5
   ]
 end
