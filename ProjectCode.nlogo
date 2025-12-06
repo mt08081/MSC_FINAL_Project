@@ -9,6 +9,8 @@ globals [
   ; lang-focus     ; "Urdu", "Sindhi", or "Pashto"
 
   agent-scale    ; How many people 1 agent equals (e.g., 10000)
+
+  region-names-list ; Store ADM3 region names
 ]
 
 ; added just now
@@ -203,12 +205,100 @@ to setup2
   print "Mapping patches to regions..."
   map-patches-to-regions
 
+  ; Build the region name list
+  set region-names-list remove-duplicates [p-region-name] of patches with [is-habitable?]
+
   print "Spawning agents..."
   ;spawn-agents
   spawn-agents-v2
 
   update-visualization
   reset-ticks
+end
+
+to go
+  ; Simulation runs for 100 years
+  if ticks >= 100 [ stop ]
+
+  ; Birth and Death Handling
+  vital-dynamics
+
+  ; Migration part (based on tolerance)
+  ask households [
+    check-happiness-and-move
+  ]
+
+  update-visualization
+  tick
+end
+
+to check-happiness-and-move
+  ; --- STEP 1: GATHER DATA ---
+  ; Optimization: We filter households ONLY in my region
+  let neighbors-in-region households with [ my-region = [my-region] of myself ]
+  let total-in-region count neighbors-in-region
+
+  ; Avoid division by zero if region is empty (unlikely but safe)
+  if total-in-region = 0 [ stop ]
+
+  ; --- STEP 2: CALCULATE RATIOS ---
+  let my-rel-count count neighbors-in-region with [ religion = [religion] of myself ]
+  let my-lang-count count neighbors-in-region with [ language = [language] of myself ]
+
+  let rel-percentage (my-rel-count / total-in-region) * 100
+  let lang-percentage (my-lang-count / total-in-region) * 100
+
+  ; --- STEP 3: DECIDE ---
+  ; We are unhappy if EITHER religion OR language share is below tolerance
+  let unhappy-religion? (rel-percentage < religious-tolerance)
+  let unhappy-language? (lang-percentage < linguistic-tolerance)
+
+  ; --- STEP 4: ACT ---
+  if unhappy-religion? or unhappy-language? [
+    relocate
+  ]
+end
+
+to relocate
+  ; Pick a random region that is NOT my current region
+  let potential-destinations remove my-region region-names-list
+
+  ; Safety check: if there are places to go
+  if not empty? potential-destinations [
+    let target-region one-of potential-destinations
+
+    ; Find a habitable spot in that region
+    let target-patch one-of patches with [ p-region-name = target-region ]
+
+    if target-patch != nobody [
+      move-to target-patch
+      set my-region target-region
+      ; Note: We do NOT update the visualization immediately for speed.
+      ; We do it once at the end of the tick.
+    ]
+  ]
+end
+
+to vital-dynamics
+  ask households [
+    ; DEATH LOGIC
+    ; death-rate is per 1000.
+    if random-float 1.0 < (death-rate / 1000) [
+      die
+    ]
+
+    ; BIRTH LOGIC
+    ; birth-rate is per 1000.
+    if random-float 1.0 < (birth-rate / 1000) [
+      hatch 1 [
+        ; Child inherits properties automatically, but we ensure they stay put
+        ; Child is born on the same patch, same religion/language
+        ; We don't need to set my-region explicitly as it copies from parent,
+        ; but good practice to be sure.
+        set my-region [my-region] of myself
+      ]
+    ]
+  ]
 end
 
 
@@ -403,44 +493,10 @@ ticks
 30.0
 
 BUTTON
-44
-55
-107
-88
-NIL
-setup
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-45
-123
-177
-156
-NIL
-mouse-click-action
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
+8
+15
+133
 50
-202
-175
-237
 Setup2 (Testing)
 setup2
 NIL
@@ -461,7 +517,7 @@ CHOOSER
 viz-mode
 viz-mode
 "Religion" "Language"
-1
+0
 
 CHOOSER
 1269
@@ -471,7 +527,7 @@ CHOOSER
 rel-focus
 rel-focus
 "Muslim" "Hindu" "Christian" "Other"
-3
+1
 
 CHOOSER
 1276
@@ -481,13 +537,13 @@ CHOOSER
 lang-focus
 lang-focus
 "Urdu" "Sindhi" "Pashto" "Other"
-3
+1
 
 BUTTON
-52
-269
-177
-304
+9
+76
+134
+111
 Mouse Clicker v2
 mouse-click-action-v2
 T
@@ -499,6 +555,83 @@ NIL
 NIL
 NIL
 1
+
+BUTTON
+140
+15
+203
+48
+Go
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+9
+145
+181
+178
+religious-tolerance
+religious-tolerance
+0
+100
+30.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+9
+204
+181
+237
+linguistic-tolerance
+linguistic-tolerance
+0
+100
+30.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+8
+260
+180
+293
+birth-rate
+birth-rate
+0
+50
+27.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+8
+318
+180
+351
+death-rate
+death-rate
+0
+50
+7.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
