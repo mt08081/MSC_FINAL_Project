@@ -1,5 +1,11 @@
 extensions [ gis ]
 
+; Note: To test agent movement etc, we can manually create a separate agent which will be larger and have a distinct color
+; use prints etc and track each print/visual relocation to make sure that the model is working as expected
+; Future plans include randomized tolerance values for each agent (bridge-agent like behaviour simulation)
+; Scouting + economic factors like wealth for each agent, cost-of-living for each region and movement choice to a region where the household's wealth can support the region's cost...
+; Visual changes to accomodate the "Selected Factor" vs "Other Factors" to show visual segregation in comparison with others (for example Muslims vs Christian+Hindu+Other combined agents)
+
 globals [
   pak-dataset
   max-pop
@@ -20,119 +26,25 @@ households-own [
   religion       ; "Muslim", "Hindu", "Christian"
   language       ; "Urdu", "Sindhi", "Pashto"
   my-region      ; The name of the region (ADM3) I belong to
+
+  my-manager     ; The manager of my region
+]
+
+; Managers for each region
+; Managers conduct census each year for their region and tell their specific numbers
+breed [ managers manager ]
+
+managers-own [
+  m-region-name
+  m-total
+  m-muslim m-hindu m-christian m-rel-other
+  m-urdu m-sindhi m-pashto m-lang-other
 ]
 
 patches-own [
   p-region-name  ; The region this patch belongs to (for fast lookups)
   is-habitable?  ; True if inside a region
 ]
-
-;;;;; end new additions
-
-to setup
-  ca
-  ; 1. Load the dataset
-  set pak-dataset gis:load-dataset "karachi_census_merged_fixed.shp"
-  gis:set-world-envelope (gis:envelope-of pak-dataset)
-
-  ; 2. Calculate Max Population
-  let all-pops []
-  foreach gis:feature-list-of pak-dataset [ f ->
-    let p gis:property-value f "Total_Pop"
-    if is-number? p [ set all-pops lput p all-pops ]
-  ]
-
-
-  ; Damn this took way to long to figure out... Had to try every kind of thing...
-  let color-buffer 250000
-
-  ifelse length all-pops > 0
-    [
-      ; DYNAMIC SCALING FIX
-      ; We add a buffer so the largest town isn't rendered as "Black-Red".
-      ; Your manual test of 3,000,000 worked well, so we add a solid buffer here.
-      set max-pop (max all-pops) + color-buffer
-    ]
-    [ set max-pop 100000 ]
-
-  ; 3. DRAW THE MAP
-  foreach gis:feature-list-of pak-dataset [ feature ->
-    let population gis:property-value feature "Total_Pop"
-
-    ; --- STEP A: FILL THE INSIDE ---
-    ifelse is-number? population [
-      ; Valid Data: Scale from White (0) to Dark Red (max-pop)
-      gis:set-drawing-color scale-color red population max-pop 0
-      gis:fill feature 255
-    ] [
-      ; Missing Data: Cyan
-      gis:set-drawing-color cyan
-      gis:fill feature 255
-    ]
-
-    ; --- STEP B: DRAW THE BORDER ---
-    ; White borders look much cleaner on the red map
-    gis:set-drawing-color white
-    gis:draw feature 1
-  ]
-end
-
-;; Issue: The summation of language OR religion based population is less than the total population of the region
-;; The reason for this is that we are not accounting for all the data inside the census data which includes minorities etc
-
-to mouse-click-action
-  if mouse-down? [
-    let x mouse-xcor
-    let y mouse-ycor
-    let found-polygon? false
-
-    foreach gis:feature-list-of pak-dataset [ f ->
-      ; Check if the feature contains the click point
-      if gis:contains? f (patch x y) [
-        set found-polygon? true
-
-        let name gis:property-value f "ADM3_EN"
-        let total gis:property-value f "Total_Pop"
-        let urdu gis:property-value f "Urdu_Pop"
-        let sindhi gis:property-value f "Sindhi_Pop"
-        let pashto gis:property-value f "Pashto_Pop"
-        let muslim gis:property-value f "Muslim_Pop"
-        let hindu gis:property-value f "Hindu_Pop"
-        let christian gis:property-value f "ChristianP"
-        let district gis:property-value f "District"
-
-        ifelse is-number? total [
-          ; SUCCESS CLICK
-          user-message (word
-            "Town: " name "\n"
-            "Population: " total "\n"
-            "Urdu Speakers: " urdu "\n"
-            "Sindhi Speakers: " sindhi "\n"
-            "Pashto Speakers: " pashto "\n"
-            "Muslims: " muslim "\n"
-            "Hindus: " hindu "\n"
-            "Christians: " christian "\n"
-            "District: " district)
-        ] [
-          ; EMPTY CLICK (Cyan Area)
-          user-message (word
-            "Region: " name "\n"
-            "Status: Shapefile exists, but Data is Missing.")
-        ]
-
-        ; stop ; (Commented out per your preference)
-      ]
-    ]
-
-    ; VOID CLICK (Black Area)
-    if not found-polygon? [
-       user-message "Zone: Void / Cantonment (No Shapefile Data)"
-    ]
-
-    wait 0.5
-  ]
-end
-
 
 ;;;;;; New additions (spawning of agents etc)
 
@@ -208,9 +120,14 @@ to setup2
   ; Build the region name list
   set region-names-list remove-duplicates [p-region-name] of patches with [is-habitable?]
 
+  ; SET Managers for each Region
+  setup-managers
+
   print "Spawning agents..."
   ;spawn-agents
   spawn-agents-v2
+
+  update-manager-stats
 
   update-visualization
   reset-ticks
@@ -220,33 +137,88 @@ to go
   ; Simulation runs for 100 years
   if ticks >= 100 [ stop ]
 
-  ; Birth and Death Handling
-  vital-dynamics
+  ; every year the manager does a "census"
+  update-manager-stats
 
   ; Migration part (based on tolerance)
   ask households [
     check-happiness-and-move
   ]
 
+  ; Birth and Death Handling
+  vital-dynamics
+
   update-visualization
   tick
+end
+
+to update-manager-stats
+  ; Reset all counters
+  ask managers [
+    set m-total 0
+    set m-muslim 0 set m-hindu 0 set m-christian 0 set m-rel-other 0
+    set m-urdu 0 set m-sindhi 0 set m-pashto 0 set m-lang-other 0
+  ]
+
+  ; Agents report to managers
+  ask households [
+    ; We talk directly to 'my-manager'
+    let r religion
+    let l language
+    ask my-manager [
+      set m-total m-total + 1
+
+      if r = "Muslim" [ set m-muslim m-muslim + 1 ]
+      if r = "Hindu" [ set m-hindu m-hindu + 1 ]
+      if r = "Christian" [ set m-christian m-christian + 1 ]
+      if r = "Other" [ set m-rel-other m-rel-other + 1 ]
+
+      if l = "Urdu" [ set m-urdu m-urdu + 1 ]
+      if l = "Sindhi" [ set m-sindhi m-sindhi + 1 ]
+      if l = "Pashto" [ set m-pashto m-pashto + 1 ]
+      if l = "Other" [ set m-re-other m-rel-other + 1 ]
+    ]
+  ]
+end
+
+to setup-managers
+  create-managers length region-names-list [
+    set hidden? true
+  ]
+
+  let i 0
+  ask managers [
+    set m-region-name item i region-names-list
+    set i i + 1
+  ]
+
 end
 
 to check-happiness-and-move
   ; --- STEP 1: GATHER DATA ---
   ; Optimization: We filter households ONLY in my region
-  let neighbors-in-region households with [ my-region = [my-region] of myself ]
-  let total-in-region count neighbors-in-region
+  ; let neighbors-in-region households with [ my-region = [my-region] of myself ]
+  ; let total-in-region count neighbors-in-region
 
-  ; Avoid division by zero if region is empty (unlikely but safe
-  if total-in-region = 0 [ stop ]
+  let total [ m-total ] of my-manager
+  if total = 0 [ stop ]
+
+  let my-rel-count 0
+  let my-lang-count 0
+
+  if religion = "Muslim" [ set my-rel-count [m-muslim] of my-manager ]
+  if religion = "Hindu" [ set my-rel-count [m-hindu] of my-manager ]
+  if religion = "Christian" [ set my-rel-count [m-christian] of my-manager ]
+  if religion = "Other" [set my-rel-count [m-rel-other] of my-manager ]
+
+  if language = "Urdu" [ set my-lang-count [m-urdu] of my-manager ]
+  if language = "Sindhi" [ set my-lang-count [m-sindhi] of my-manager ]
+  if language = "Pashto" [ set my-lang-count [m-pashto] of my-manager ]
+  if language = "Other" [ set my-lang-count [m-lang-other] of my-manager ]
 
   ; --- STEP 2: CALCULATE RATIOS ---
-  let my-rel-count count neighbors-in-region with [ religion = [religion] of myself ]
-  let my-lang-count count neighbors-in-region with [ language = [language] of myself ]
-
-  let rel-percentage (my-rel-count / total-in-region) * 100
-  let lang-percentage (my-lang-count / total-in-region) * 100
+  let rel-percentage (my-rel-count / total) * 100
+  let lang-percentage (my-lang-count / total) * 100
 
   ; --- STEP 3: DECIDE ---
   ; We are unhappy if EITHER religion OR language share is below tolerance
@@ -263,7 +235,7 @@ to relocate
   ; Pick a random region that is NOT my current region
   let potential-destinations remove my-region region-names-list
 
-  ; if there are places to go (i.e potential region list isn't empty)
+  ; if there are places to go i.e potential region list isn't empty
   if not empty? potential-destinations [
     let target-region one-of potential-destinations
 
@@ -273,6 +245,8 @@ to relocate
     if target-patch != nobody [
       move-to target-patch
       set my-region target-region
+
+      set my-manager one-of managers with [ m-region-name = target-region ]
     ]
   ]
 end
@@ -351,10 +325,15 @@ to spawn-agents-v2
       ]
 
       if any? valid-patches [
+
+        ; Find manager for this region
+        let local-manager one-of managers with [ m-region-name = region-name ]
+
         ask n-of (min list num-agents count valid-patches) valid-patches [
            sprout-households 1 [
              set size 1.5
              set my-region region-name
+             set my-manager local-manager ; add the region's manager to the agent
              set shape "circle"
 
              ; Probabilistic Assignment (based on the data embedded in the shapefile)
@@ -397,14 +376,28 @@ to update-visualization
     let region-name gis:property-value f "ADM3_EN"
 
     ; Count agents (at any tick)
-    let total-here count households with [ my-region = region-name ]
-
+    ; let total-here count households with [ my-region = region-name ]
+    let my-man one-of managers with [ m-region-name = region-name ]
+    let total-here 0
     let focus-count 0
-    if viz-mode = "Religion" [
-       set focus-count count households with [ my-region = region-name and religion = rel-focus ]
-    ]
-    if viz-mode = "Language" [
-       set focus-count count households with [ my-region = region-name and language = lang-focus ]
+
+    if my-man != nobody [
+      set total-here [m-total] of my-man
+
+      ; Extract count directly from manager variables
+      if viz-mode = "Religion" [
+        if rel-focus = "Muslim" [ set focus-count [m-muslim] of my-man ]
+        if rel-focus = "Hindu" [ set focus-count [m-hindu] of my-man ]
+        if rel-focus = "Christian" [ set focus-count [m-christian] of my-man ]
+        if rel-focus = "Other" [ set focus-count [m-rel-other] of my-man ]
+      ]
+
+      if viz-mode = "Language" [
+        if lang-focus = "Urdu" [ set focus-count [m-urdu] of my-man ]
+        if lang-focus = "Sindhi" [ set focus-count [m-sindhi] of my-man ]
+        if lang-focus = "Pashto" [ set focus-count [m-pashto] of my-man ]
+        if lang-focus = "Other" [ set focus-count [m-lang-other] of my-man ]
+      ]
     ]
 
     ; let color-buffer 10
@@ -512,7 +505,7 @@ CHOOSER
 viz-mode
 viz-mode
 "Religion" "Language"
-0
+1
 
 CHOOSER
 1269
