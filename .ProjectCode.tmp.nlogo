@@ -238,7 +238,7 @@ to check-happiness-and-move
   let neighbors-in-region households with [ my-region = [my-region] of myself ]
   let total-in-region count neighbors-in-region
 
-  ; Avoid division by zero if region is empty (unlikely but safe)
+  ; Avoid division by zero if region is empty (unlikely but safe
   if total-in-region = 0 [ stop ]
 
   ; --- STEP 2: CALCULATE RATIOS ---
@@ -263,7 +263,7 @@ to relocate
   ; Pick a random region that is NOT my current region
   let potential-destinations remove my-region region-names-list
 
-  ; Safety check: if there are places to go
+  ; if there are places to go (i.e potential region list isn't empty)
   if not empty? potential-destinations [
     let target-region one-of potential-destinations
 
@@ -273,8 +273,6 @@ to relocate
     if target-patch != nobody [
       move-to target-patch
       set my-region target-region
-      ; Note: We do NOT update the visualization immediately for speed.
-      ; We do it once at the end of the tick.
     ]
   ]
 end
@@ -282,19 +280,16 @@ end
 to vital-dynamics
   ask households [
     ; DEATH LOGIC
-    ; death-rate is per 1000.
+    ; death-rate is per 1000
     if random-float 1.0 < (death-rate / 1000) [
       die
     ]
 
     ; BIRTH LOGIC
-    ; birth-rate is per 1000.
+    ; birth-rate is per 1000
     if random-float 1.0 < (birth-rate / 1000) [
       hatch 1 [
-        ; Child inherits properties automatically, but we ensure they stay put
-        ; Child is born on the same patch, same religion/language
-        ; We don't need to set my-region explicitly as it copies from parent,
-        ; but good practice to be sure.
+        ; hatching copies all properties from parent to child
         set my-region [my-region] of myself
       ]
     ]
