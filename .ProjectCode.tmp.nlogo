@@ -131,6 +131,9 @@ to mouse-click-action
   ]
 end
 
+
+;;;;;; New additions (spawning of agents etc)
+
 to mouse-click-action-v2
   if mouse-down? [
     ; Identify where we clicked
@@ -183,12 +186,9 @@ to mouse-click-action-v2
       user-message "Zone: Void / Cantonment (No Data)"
     ]
 
-    ; Prevent spamming
     wait 0.5
   ]
 end
-
-;;;;;; New additions (spawning of agents etc)
 
 to setup2
   ca
@@ -457,7 +457,7 @@ CHOOSER
 1266
 80
 1369
-126
+125
 viz-mode
 viz-mode
 "Religion" "Language"
@@ -467,17 +467,17 @@ CHOOSER
 1269
 173
 1408
-219
+218
 rel-focus
 rel-focus
-"Muslim" "Hindu" "Christian"
+"Muslim" "Hindu" "Christian" "Other"
 2
 
 CHOOSER
 1276
 272
 1415
-318
+317
 lang-focus
 lang-focus
 "Urdu" "Sindhi" "Pashto"
