@@ -459,6 +459,46 @@ to-report get-color-for-language [ l ]
   ; default case for others
   report grey
 end
+
+to-report global-religion-similarity
+  let total-similarity 0
+  let count-agents 0
+  ask households [
+    let my-total [m-total] of my-manager
+    if my-total > 0 [
+       let my-group-count 0
+       if religion = "Muslim" [ set my-group-count [m-muslim] of my-manager ]
+       if religion = "Hindu" [ set my-group-count [m-hindu] of my-manager ]
+       if religion = "Christian" [ set my-group-count [m-christian] of my-manager ]
+       if religion = "Other" [ set my-group-count [m-rel-other] of my-manager ]
+
+       set total-similarity total-similarity + (my-group-count / my-total)
+       set count-agents count-agents + 1
+    ]
+  ]
+  if count-agents = 0 [ report 0 ]
+  report (total-similarity / count-agents) * 100
+end
+
+to-report global-language-similarity
+  let total-similarity 0
+  let count-agents 0
+  ask households [
+    let my-total [m-total] of my-manager
+    if my-total > 0 [
+       let my-group-count 0
+       if language = "Urdu" [ set my-group-count [m-urdu] of my-manager ]
+       if language = "Sindhi" [ set my-group-count [m-sindhi] of my-manager ]
+       if language = "Pashto" [ set my-group-count [m-pashto] of my-manager ]
+       if language = "Other" [ set my-group-count [m-lang-other] of my-manager ]
+
+       set total-similarity total-similarity + (my-group-count / my-total)
+       set count-agents count-agents + 1
+    ]
+  ]
+  if count-agents = 0 [ report 0 ]
+  report (total-similarity / count-agents) * 100
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -488,10 +528,10 @@ ticks
 30.0
 
 BUTTON
-8
-15
-133
-50
+46
+650
+171
+685
 Setup2 (Testing)
 setup2
 NIL
@@ -505,14 +545,14 @@ NIL
 1
 
 CHOOSER
-1266
-80
-1369
-125
+1295
+395
+1398
+440
 viz-mode
 viz-mode
 "Religion" "Language"
-1
+0
 
 CHOOSER
 1269
@@ -532,13 +572,13 @@ CHOOSER
 lang-focus
 lang-focus
 "Urdu" "Sindhi" "Pashto" "Other"
-0
+2
 
 BUTTON
-9
-76
-134
-111
+46
+583
+171
+618
 Mouse Clicker v2
 mouse-click-action-v2
 T
@@ -552,10 +592,10 @@ NIL
 1
 
 BUTTON
-140
-15
-203
-48
+73
+448
+136
+481
 Go
 go
 T
@@ -627,6 +667,46 @@ death-rate
 1
 NIL
 HORIZONTAL
+
+PLOT
+1304
+559
+1958
+948
+Average Similarity (Segregation Index)
+Time (Years)
+Average Similarity (%)
+0.0
+100.0
+0.0
+100.0
+true
+true
+"" ""
+PENS
+"Religion" 1.0 0 -16777216 true "" "plot global-religion-similarity"
+"Language" 1.0 0 -7500403 true "" "plot global-language-similarity"
+
+PLOT
+1520
+144
+2095
+509
+Demographics (Population Counts)
+Time (Years)
+Number of Agents
+0.0
+100.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"Muslim" 1.0 0 -10899396 true "" "plot count households with [religion = \"Muslim\"]"
+"Hindu" 1.0 0 -7500403 true "" "plot count households with [religion = \"Hindu\"]"
+"Christian" 1.0 0 -2674135 true "" "plot count households with [religion = \"Christian\"]"
+"Other" 1.0 0 -955883 true "" "plot count households with [religion = \"Other\"]"
 
 @#$#@#$#@
 ## WHAT IS IT?
