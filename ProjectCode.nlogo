@@ -56,6 +56,8 @@ to mouse-click-action-v2
     ifelse [ is-habitable? ] of clicked-patch [
       let r-name [ p-region-name ] of clicked-patch
 
+      let region-patch-count count patches with [ p-region-name = r-name ]
+
       ; Count LIVE agents
       let region-agents households with [ my-region = r-name ]
       let total-agents count region-agents
@@ -76,7 +78,9 @@ to mouse-click-action-v2
           "VIEW MODE: RELIGION\n"
           "Focus Group: " rel-focus "\n"
           "Group Count: " focus-count " (" (focus-count * agent-scale) ")\n"
-          "Regional Share: " precision pct 2 "%"
+          "Regional Share: " precision pct 2 "%" "\n"
+          "Total Patches: " region-patch-count "\n"
+
         )
       ]
 
@@ -89,7 +93,9 @@ to mouse-click-action-v2
           "VIEW MODE: LANGUAGE\n"
           "Focus Group: " lang-focus "\n"
           "Group Count: " focus-count " (" (focus-count * agent-scale) ")\n"
-          "Regional Share: " precision pct 2 "%"
+          "Regional Share: " precision pct 2 "%" "\n"
+          "Total Patches: " region-patch-count "\n"
+
         )
       ]
 
@@ -151,6 +157,70 @@ to go
   update-visualization
   tick
 end
+
+to spawn-agents-v2
+  foreach gis:feature-list-of pak-dataset [ f ->
+    let region-name gis:property-value f "ADM3_EN"
+    let total-pop gis:property-value f "Total_Pop"
+
+    if is-number? total-pop [
+      let num-agents floor (total-pop / agent-scale)
+
+      ; Calculate Probabilities for this region
+      let p-muslim (gis:property-value f "Muslim_Pop") / total-pop
+      let p-hindu  (gis:property-value f "Hindu_Pop") / total-pop
+      let p-christian (gis:property-value f "ChristianP") / total-pop
+      ; Others would be the remainder of the population (can be added in the choices)
+
+      let p-urdu   (gis:property-value f "Urdu_Pop") / total-pop
+      let p-sindhi (gis:property-value f "Sindhi_Pop") / total-pop
+      let p-pashto (gis:property-value f "Pashto_Pop") / total-pop
+      ; Others would be the remainder of the population (can be added in the choices)
+
+      let region-patches patches with [ p-region-name = region-name ]
+
+      ; This is done so that households don't sprout at the edges
+      let interior-patches region-patches with [
+        count neighbors with [ p-region-name = region-name ] = 8
+      ]
+
+      ; If space is full then we need a fallback strat
+      let valid-patches interior-patches
+
+      if count valid-patches < num-agents [
+        set valid-patches region-patches
+      ]
+
+      if any? valid-patches [
+
+        ; Find manager for this region
+        let local-manager one-of managers with [ m-region-name = region-name ]
+
+        ask n-of (min list num-agents count valid-patches) valid-patches [
+           sprout-households 1 [
+             set size 1.5
+             set my-region region-name
+             set my-manager local-manager ; add the region's manager to the agent
+             set shape "circle"
+
+             ; Probabilistic Assignment (based on the data embedded in the shapefile)
+             let r-rnd random-float 1.0
+             ifelse r-rnd < p-muslim [ set religion "Muslim" ]
+             [ ifelse r-rnd < (p-muslim + p-hindu) [ set religion "Hindu" ]
+              [ ifelse r-rnd < (p-muslim + p-hindu + p-christian) [ set religion "Christian" ] [ set religion "Other" ] ] ]
+
+             let l-rnd random-float 1.0
+             ifelse l-rnd < p-urdu [ set language "Urdu" ]
+             [ ifelse l-rnd < (p-urdu + p-sindhi) [ set language "Sindhi" ]
+               [ ifelse l-rnd < (p-urdu + p-sindhi + p-pashto) [ set language "Pashto" ] [ set language "Other" ] ]
+             ]
+           ]
+        ]
+      ]
+    ]
+  ]
+end
+
 
 to update-manager-stats
   ; Reset all counters
@@ -288,69 +358,6 @@ to map-patches-to-regions
     ]
     gis:set-drawing-color white
     gis:draw f 1
-  ]
-end
-
-to spawn-agents-v2
-  foreach gis:feature-list-of pak-dataset [ f ->
-    let region-name gis:property-value f "ADM3_EN"
-    let total-pop gis:property-value f "Total_Pop"
-
-    if is-number? total-pop [
-      let num-agents floor (total-pop / agent-scale)
-
-      ; Calculate Probabilities for this region
-      let p-muslim (gis:property-value f "Muslim_Pop") / total-pop
-      let p-hindu  (gis:property-value f "Hindu_Pop") / total-pop
-      let p-christian (gis:property-value f "ChristianP") / total-pop
-      ; Others would be the remainder of the population (can be added in the choices)
-
-      let p-urdu   (gis:property-value f "Urdu_Pop") / total-pop
-      let p-sindhi (gis:property-value f "Sindhi_Pop") / total-pop
-      let p-pashto (gis:property-value f "Pashto_Pop") / total-pop
-      ; Others would be the remainder of the population (can be added in the choices)
-
-      let region-patches patches with [ p-region-name = region-name ]
-
-      ; This is done so that households don't sprout at the edges
-      let interior-patches region-patches with [
-        count neighbors with [ p-region-name = region-name ] = 8
-      ]
-
-      ; If space is full then we need a fallback strat
-      let valid-patches interior-patches
-
-      if count valid-patches < num-agents [
-        set valid-patches region-patches
-      ]
-
-      if any? valid-patches [
-
-        ; Find manager for this region
-        let local-manager one-of managers with [ m-region-name = region-name ]
-
-        ask n-of (min list num-agents count valid-patches) valid-patches [
-           sprout-households 1 [
-             set size 1.5
-             set my-region region-name
-             set my-manager local-manager ; add the region's manager to the agent
-             set shape "circle"
-
-             ; Probabilistic Assignment (based on the data embedded in the shapefile)
-             let r-rnd random-float 1.0
-             ifelse r-rnd < p-muslim [ set religion "Muslim" ]
-             [ ifelse r-rnd < (p-muslim + p-hindu) [ set religion "Hindu" ]
-              [ ifelse r-rnd < (p-muslim + p-hindu + p-christian) [ set religion "Christian" ] [ set religion "Other" ] ] ]
-
-             let l-rnd random-float 1.0
-             ifelse l-rnd < p-urdu [ set language "Urdu" ]
-             [ ifelse l-rnd < (p-urdu + p-sindhi) [ set language "Sindhi" ]
-               [ ifelse l-rnd < (p-urdu + p-sindhi + p-pashto) [ set language "Pashto" ] [ set language "Other" ] ]
-             ]
-           ]
-        ]
-      ]
-    ]
   ]
 end
 
@@ -505,7 +512,7 @@ CHOOSER
 viz-mode
 viz-mode
 "Religion" "Language"
-0
+1
 
 CHOOSER
 1269
@@ -515,7 +522,7 @@ CHOOSER
 rel-focus
 rel-focus
 "Muslim" "Hindu" "Christian" "Other"
-3
+0
 
 CHOOSER
 1276
@@ -525,7 +532,7 @@ CHOOSER
 lang-focus
 lang-focus
 "Urdu" "Sindhi" "Pashto" "Other"
-3
+0
 
 BUTTON
 9
@@ -615,7 +622,7 @@ death-rate
 death-rate
 0
 50
-7.0
+6.0
 1
 1
 NIL
