@@ -9,15 +9,9 @@ extensions [ gis ]
 globals [
   pak-dataset
   max-pop
-  ; added just now
-  ; viz-mode       ; "Religion" or "Language"
-  ; rel-focus      ; "Muslim", "Hindu", or "Christian"
-  ; lang-focus     ; "Urdu", "Sindhi", or "Pashto"
-
   agent-scale    ; How many people 1 agent equals (e.g., 10000)
 
   region-names-list ; Store ADM3 region names
-
 ]
 
 ; added just now
@@ -27,8 +21,12 @@ households-own [
   religion       ; "Muslim", "Hindu", "Christian"
   language       ; "Urdu", "Sindhi", "Pashto"
   my-region      ; The name of the region (ADM3) I belong to
-
   my-manager     ; The manager of my region
+
+  similar-nearby-rel    ; Count of same-religion households in my region
+  similar-nearby-lang   ; Count of same-language households in my region
+  pct-similar-rel       ; Percentage of same-religion in my region
+  pct-similar-lang      ; Percentage of same-language in my region
 ]
 
 ; Managers for each region
@@ -48,6 +46,35 @@ patches-own [
 ]
 
 ;;;;;; New additions (spawning of agents etc)
+
+to-report calculate-similarity
+  ; This procedure calculates similarity metrics for all households
+  ; It's called as a reporter for BehaviorSpace
+
+  ask households [
+    let total [m-total] of my-manager
+
+    if total > 0 [
+      ; Religion similarity
+      if religion = "Muslim" [ set similar-nearby-rel [m-muslim] of my-manager ]
+      if religion = "Hindu" [ set similar-nearby-rel [m-hindu] of my-manager ]
+      if religion = "Christian" [ set similar-nearby-rel [m-christian] of my-manager ]
+      if religion = "Other" [ set similar-nearby-rel [m-rel-other] of my-manager ]
+
+      ; Language similarity
+      if language = "Urdu" [ set similar-nearby-lang [m-urdu] of my-manager ]
+      if language = "Sindhi" [ set similar-nearby-lang [m-sindhi] of my-manager ]
+      if language = "Pashto" [ set similar-nearby-lang [m-pashto] of my-manager ]
+      if language = "Other" [ set similar-nearby-lang [m-lang-other] of my-manager ]
+
+      ; Calculate percentages
+      set pct-similar-rel (similar-nearby-rel / total) * 100
+      set pct-similar-lang (similar-nearby-lang / total) * 100
+    ]
+  ]
+
+  report true  ; Just to satisfy the reporter requirement
+end
 
 to mouse-click-action-v2
   if mouse-down? [
@@ -111,7 +138,7 @@ to mouse-click-action-v2
   ]
 end
 
-to setup2
+to setup
   ca
   ; Adjust this: Lower = More agents (Laggy), Higher = Fewer agents (Abstract)
   set agent-scale 5000
@@ -142,10 +169,12 @@ end
 
 to go
   ; Simulation runs for 100 years
-  if ticks >= 100 [ stop ]
+  if ticks >= 1000 [ stop ]
 
   ; every year the manager does a "census"
   update-manager-stats
+
+  ; calculate-similarity
 
   ; Migration part (based on tolerance)
   ask households [
@@ -363,84 +392,22 @@ to map-patches-to-regions
 end
 
 to update-visualization
-  ; Agents
+  ; Show ALL agents, colored by viz-mode
   ask households [
+    show-turtle
     ifelse viz-mode = "Religion" [
-      ; In Religion Mode
-      ifelse religion = rel-focus
-        [ show-turtle set color get-color-for-religion religion ]
-        [ hide-turtle ]
-    ]
-    [
-      ; In Language Mode
-      ifelse language = lang-focus
-        [ show-turtle set color get-color-for-language language ]
-        [ hide-turtle ]
+      set color get-color-for-religion religion
+    ] [
+      set color get-color-for-language language
     ]
   ]
 
-  ; Map Recoloring
+  ; Map Recoloring - simple white background with black borders
   foreach gis:feature-list-of pak-dataset [ f ->
-    let region-name gis:property-value f "ADM3_EN"
-
-    ; Count agents (at any tick)
-    ; let total-here count households with [ my-region = region-name ]
-    let my-man one-of managers with [ m-region-name = region-name ]
-    let total-here 0
-    let focus-count 0
-
-    if my-man != nobody [
-      set total-here [m-total] of my-man
-
-      ; Extract count directly from manager variables
-      if viz-mode = "Religion" [
-        if rel-focus = "Muslim" [ set focus-count [m-muslim] of my-man ]
-        if rel-focus = "Hindu" [ set focus-count [m-hindu] of my-man ]
-        if rel-focus = "Christian" [ set focus-count [m-christian] of my-man ]
-        if rel-focus = "Other" [ set focus-count [m-rel-other] of my-man ]
-      ]
-
-      if viz-mode = "Language" [
-        if lang-focus = "Urdu" [ set focus-count [m-urdu] of my-man ]
-        if lang-focus = "Sindhi" [ set focus-count [m-sindhi] of my-man ]
-        if lang-focus = "Pashto" [ set focus-count [m-pashto] of my-man ]
-        if lang-focus = "Other" [ set focus-count [m-lang-other] of my-man ]
-      ]
-    ]
-
-    ; let color-buffer 10
-
-    ifelse total-here > 0 [
-      ; let ratio focus-count / ( total-here + color-buffer)
-      let ratio focus-count / total-here
-
-      ; Scale White -> Chosen Color
-      ;; Christian and Hindu population is very small so we have to use a shifted color-scale ratio for visual enhancement!!!
-      ifelse viz-mode = "Religion" and rel-focus != "Muslim" [
-        gis:set-drawing-color scale-color red ratio 0.15 0
-      ]
-      [
-        gis:set-drawing-color scale-color red ratio 1 0
-      ]
-
-      ; Note: You can change 'red' to a variable base-color if you want different maps for diff choices
-      gis:fill f 255
-    ] [
-      ; Fill empty spaces (insignificant number of a certain population in a region)
-      gis:set-drawing-color white
-      gis:fill f 255
-    ]
-
-    ; Muslim population is extremely dominant... It is necessary to perform this for visual clarity
-    ifelse viz-mode = "Religion" and rel-focus = "Muslim" [
-      gis:set-drawing-color white
-      gis:draw f 1.5
-    ]
-    [
-      ; Boundaries of the regions
-      gis:set-drawing-color black
-      gis:draw f 1.5
-    ]
+    gis:set-drawing-color white
+    gis:fill f 255
+    gis:set-drawing-color black
+    gis:draw f 1.5
   ]
 end
 
@@ -529,12 +496,12 @@ ticks
 30.0
 
 BUTTON
-46
-650
-171
-685
+8
+15
+133
+50
 Setup2 (Testing)
-setup2
+setup
 NIL
 1
 T
@@ -546,14 +513,14 @@ NIL
 1
 
 CHOOSER
-1295
-395
-1398
-440
+1266
+80
+1369
+125
 viz-mode
 viz-mode
 "Religion" "Language"
-0
+1
 
 CHOOSER
 1269
@@ -563,7 +530,7 @@ CHOOSER
 rel-focus
 rel-focus
 "Muslim" "Hindu" "Christian" "Other"
-0
+1
 
 CHOOSER
 1276
@@ -573,13 +540,13 @@ CHOOSER
 lang-focus
 lang-focus
 "Urdu" "Sindhi" "Pashto" "Other"
-2
+1
 
 BUTTON
-46
-583
-171
-618
+9
+76
+134
+111
 Mouse Clicker v2
 mouse-click-action-v2
 T
@@ -593,10 +560,10 @@ NIL
 1
 
 BUTTON
-73
-448
-136
-481
+140
+15
+203
+48
 Go
 go
 T
@@ -618,7 +585,7 @@ religious-tolerance
 religious-tolerance
 0
 100
-50.0
+0.0
 1
 1
 NIL
@@ -633,7 +600,7 @@ linguistic-tolerance
 linguistic-tolerance
 0
 100
-39.0
+2.0
 1
 1
 NIL
@@ -648,7 +615,7 @@ birth-rate
 birth-rate
 0
 50
-27.0
+30.0
 1
 1
 NIL
@@ -663,51 +630,11 @@ death-rate
 death-rate
 0
 50
-6.0
+5.0
 1
 1
 NIL
 HORIZONTAL
-
-PLOT
-1304
-559
-1958
-948
-Average Similarity (Segregation Index)
-Time (Years)
-Average Similarity (%)
-0.0
-100.0
-0.0
-100.0
-true
-true
-"" ""
-PENS
-"Religion" 1.0 0 -16777216 true "" "plot global-religion-similarity"
-"Language" 1.0 0 -7500403 true "" "plot global-language-similarity"
-
-PLOT
-1520
-144
-2095
-509
-Demographics (Population Counts)
-Time (Years)
-Number of Agents
-0.0
-100.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"Muslim" 1.0 0 -10899396 true "" "plot count households with [religion = \"Muslim\"]"
-"Hindu" 1.0 0 -7500403 true "" "plot count households with [religion = \"Hindu\"]"
-"Christian" 1.0 0 -2674135 true "" "plot count households with [religion = \"Christian\"]"
-"Other" 1.0 0 -955883 true "" "plot count households with [religion = \"Other\"]"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1056,90 +983,36 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="Pilot Test" repetitions="2" runMetricsEveryStep="true">
-    <setup>setup2</setup>
+  <experiment name="Tolerance Sensitivity Analysis" repetitions="5" runMetricsEveryStep="true">
+    <setup>setup</setup>
     <go>go</go>
     <metric>ticks</metric>
     <metric>count households</metric>
     <metric>count households with [religion = "Muslim"]</metric>
     <metric>count households with [religion = "Hindu"]</metric>
     <metric>count households with [religion = "Christian"]</metric>
+    <metric>count households with [religion = "Other"]</metric>
     <metric>count households with [language = "Urdu"]</metric>
     <metric>count households with [language = "Sindhi"]</metric>
     <metric>count households with [language = "Pashto"]</metric>
-    <metric>global-religion-similarity</metric>
+    <metric>count households with [language = "Other"]</metric>
     <metric>max [m-muslim] of managers</metric>
     <metric>max [m-hindu] of managers</metric>
     <metric>max [m-christian] of managers</metric>
+    <metric>max [m-urdu] of managers</metric>
+    <metric>max [m-sindhi] of managers</metric>
+    <metric>max [m-pashto] of managers</metric>
+    <metric>min [m-total] of managers</metric>
+    <metric>max [m-total] of managers</metric>
     <metric>standard-deviation [m-total] of managers</metric>
-    <steppedValueSet variable="religious-tolerance" first="10" step="20" last="30"/>
-    <steppedValueSet variable="linguistic-tolerance" first="10" step="20" last="30"/>
-    <steppedValueSet variable="birth-rate" first="20" step="25" last="30"/>
-    <steppedValueSet variable="death-rate" first="5" step="8" last="10"/>
-    <enumeratedValueSet variable="viz-mode">
-      <value value="&quot;Religion&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="rel-focus">
-      <value value="&quot;Muslim&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="lang-focus">
-      <value value="&quot;Urdu&quot;"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="Tolerance Sensitivity" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup2</setup>
-    <go>go</go>
-    <metric>ticks</metric>
-    <metric>count households</metric>
-    <metric>count households with [religion = "Muslim"]</metric>
-    <metric>count households with [religion = "Hindu"]</metric>
-    <metric>count households with [religion = "Christian"]</metric>
-    <metric>count households with [language = "Urdu"]</metric>
-    <metric>count households with [language = "Sindhi"]</metric>
-    <metric>count households with [language = "Pashto"]</metric>
-    <metric>global-religion-similarity</metric>
-    <metric>max [m-muslim] of managers</metric>
-    <metric>max [m-hindu] of managers</metric>
-    <metric>max [m-christian] of managers</metric>
-    <metric>standard-deviation [m-total] of managers</metric>
-    <steppedValueSet variable="religious-tolerance" first="10" step="20" last="30"/>
-    <steppedValueSet variable="linguistic-tolerance" first="10" step="20" last="30"/>
+    <steppedValueSet variable="religious-tolerance" first="20" step="50" last="80"/>
+    <steppedValueSet variable="linguistic-tolerance" first="20" step="50" last="80"/>
     <enumeratedValueSet variable="birth-rate">
-      <value value="25"/>
+      <value value="27"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="death-rate">
-      <value value="10"/>
+      <value value="6"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="viz-mode">
-      <value value="&quot;Religion&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="rel-focus">
-      <value value="&quot;Muslim&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="lang-focus">
-      <value value="&quot;Urdu&quot;"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="Demographic Rates" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup2</setup>
-    <go>go</go>
-    <metric>ticks</metric>
-    <metric>count households</metric>
-    <metric>count households with [religion = "Muslim"]</metric>
-    <metric>count households with [religion = "Hindu"]</metric>
-    <metric>count households with [religion = "Christian"]</metric>
-    <metric>count households with [language = "Urdu"]</metric>
-    <metric>count households with [language = "Sindhi"]</metric>
-    <metric>count households with [language = "Pashto"]</metric>
-    <metric>global-religion-similarity</metric>
-    <metric>max [m-muslim] of managers</metric>
-    <metric>max [m-hindu] of managers</metric>
-    <metric>max [m-christian] of managers</metric>
-    <metric>standard-deviation [m-total] of managers</metric>
-    <steppedValueSet variable="religious-tolerance" first="5" step="10" last="20"/>
-    <steppedValueSet variable="linguistic-tolerance" first="5" step="10" last="20"/>
-    <steppedValueSet variable="birth-rate" first="20" step="25" last="30"/>
-    <steppedValueSet variable="death-rate" first="8" step="10" last="12"/>
     <enumeratedValueSet variable="viz-mode">
       <value value="&quot;Religion&quot;"/>
     </enumeratedValueSet>

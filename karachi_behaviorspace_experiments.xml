@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE experiments>
+<experiments>
+  
+  <!-- EXPERIMENT 1: Tolerance Sensitivity Analysis -->
+  <experiment name="exp1_tolerance_sensitivity" repetitions="5" runMetricsEveryStep="false">
+    <setup>setup2</setup>
+    <go>go</go>
+    <timeLimit steps="100"/>
+    
+    <!-- Parameters to vary -->
+    <enumeratedValueSet variable="rel-tolerance">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="60"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-tolerance">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="60"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+    
+    <!-- Fixed parameters -->
+    <enumeratedValueSet variable="rel-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="birth-rate">
+      <value value="2.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="death-rate">
+      <value value="1"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="search-radius">
+      <value value="5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="viz-mode">
+      <value value="&quot;Religion&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-focus">
+      <value value="&quot;Muslim&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-focus">
+      <value value="&quot;Urdu&quot;"/>
+    </enumeratedValueSet>
+    
+    <!-- Metrics to collect at end of run -->
+    <metric>ticks</metric>
+    <metric>count households</metric>
+    <metric>count households with [religion = "Muslim"]</metric>
+    <metric>count households with [religion = "Hindu"]</metric>
+    <metric>count households with [religion = "Christian"]</metric>
+    <metric>count households with [religion = "Other"]</metric>
+    <metric>count households with [language = "Urdu"]</metric>
+    <metric>count households with [language = "Sindhi"]</metric>
+    <metric>count households with [language = "Pashto"]</metric>
+    <metric>count households with [language = "Other"]</metric>
+    <metric>mean [similar-nearby-rel] of households</metric>
+    <metric>mean [similar-nearby-lang] of households</metric>
+    <metric>mean [pct-similar-rel] of households</metric>
+    <metric>mean [pct-similar-lang] of households</metric>
+    <metric>max [m-muslim] of managers</metric>
+    <metric>max [m-hindu] of managers</metric>
+    <metric>max [m-christian] of managers</metric>
+    <metric>max [m-urdu] of managers</metric>
+    <metric>max [m-sindhi] of managers</metric>
+    <metric>max [m-pashto] of managers</metric>
+    <metric>standard-deviation [m-total] of managers</metric>
+  </experiment>
+  
+  
+  <!-- EXPERIMENT 2: Weight Interaction Effects -->
+  <experiment name="exp2_weight_interactions" repetitions="5" runMetricsEveryStep="false">
+    <setup>setup2</setup>
+    <go>go</go>
+    <timeLimit steps="100"/>
+    
+    <!-- Parameters to vary -->
+    <enumeratedValueSet variable="rel-tolerance">
+      <value value="40"/>
+      <value value="60"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-tolerance">
+      <value value="40"/>
+      <value value="60"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-weight">
+      <value value="0.3"/>
+      <value value="0.5"/>
+      <value value="0.7"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-weight">
+      <value value="0.3"/>
+      <value value="0.5"/>
+      <value value="0.7"/>
+    </enumeratedValueSet>
+    
+    <!-- Fixed parameters -->
+    <enumeratedValueSet variable="birth-rate">
+      <value value="2.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="death-rate">
+      <value value="1"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="search-radius">
+      <value value="5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="viz-mode">
+      <value value="&quot;Religion&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-focus">
+      <value value="&quot;Muslim&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-focus">
+      <value value="&quot;Urdu&quot;"/>
+    </enumeratedValueSet>
+    
+    <!-- Metrics to collect -->
+    <metric>ticks</metric>
+    <metric>count households</metric>
+    <metric>count households with [religion = "Muslim"]</metric>
+    <metric>count households with [religion = "Hindu"]</metric>
+    <metric>count households with [religion = "Christian"]</metric>
+    <metric>count households with [religion = "Other"]</metric>
+    <metric>count households with [language = "Urdu"]</metric>
+    <metric>count households with [language = "Sindhi"]</metric>
+    <metric>count households with [language = "Pashto"]</metric>
+    <metric>count households with [language = "Other"]</metric>
+    <metric>mean [similar-nearby-rel] of households</metric>
+    <metric>mean [similar-nearby-lang] of households</metric>
+    <metric>mean [pct-similar-rel] of households</metric>
+    <metric>mean [pct-similar-lang] of households</metric>
+    <metric>max [m-muslim] of managers</metric>
+    <metric>max [m-hindu] of managers</metric>
+    <metric>max [m-christian] of managers</metric>
+    <metric>max [m-urdu] of managers</metric>
+    <metric>max [m-sindhi] of managers</metric>
+    <metric>max [m-pashto] of managers</metric>
+    <metric>standard-deviation [m-total] of managers</metric>
+  </experiment>
+  
+  
+  <!-- EXPERIMENT 3: Search Radius Impact -->
+  <experiment name="exp3_search_radius" repetitions="5" runMetricsEveryStep="false">
+    <setup>setup2</setup>
+    <go>go</go>
+    <timeLimit steps="100"/>
+    
+    <!-- Parameters to vary -->
+    <enumeratedValueSet variable="rel-tolerance">
+      <value value="30"/>
+      <value value="50"/>
+      <value value="70"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-tolerance">
+      <value value="30"/>
+      <value value="50"/>
+      <value value="70"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="search-radius">
+      <value value="3"/>
+      <value value="5"/>
+      <value value="8"/>
+    </enumeratedValueSet>
+    
+    <!-- Fixed parameters -->
+    <enumeratedValueSet variable="rel-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="birth-rate">
+      <value value="2.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="death-rate">
+      <value value="1"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="viz-mode">
+      <value value="&quot;Religion&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-focus">
+      <value value="&quot;Muslim&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-focus">
+      <value value="&quot;Urdu&quot;"/>
+    </enumeratedValueSet>
+    
+    <!-- Metrics to collect -->
+    <metric>ticks</metric>
+    <metric>count households</metric>
+    <metric>count households with [religion = "Muslim"]</metric>
+    <metric>count households with [religion = "Hindu"]</metric>
+    <metric>count households with [religion = "Christian"]</metric>
+    <metric>count households with [religion = "Other"]</metric>
+    <metric>count households with [language = "Urdu"]</metric>
+    <metric>count households with [language = "Sindhi"]</metric>
+    <metric>count households with [language = "Pashto"]</metric>
+    <metric>count households with [language = "Other"]</metric>
+    <metric>mean [similar-nearby-rel] of households</metric>
+    <metric>mean [similar-nearby-lang] of households</metric>
+    <metric>mean [pct-similar-rel] of households</metric>
+    <metric>mean [pct-similar-lang] of households</metric>
+    <metric>max [m-muslim] of managers</metric>
+    <metric>max [m-hindu] of managers</metric>
+    <metric>max [m-christian] of managers</metric>
+    <metric>max [m-urdu] of managers</metric>
+    <metric>max [m-sindhi] of managers</metric>
+    <metric>max [m-pashto] of managers</metric>
+    <metric>standard-deviation [m-total] of managers</metric>
+  </experiment>
+  
+  
+  <!-- EXPERIMENT 4: Quick Pilot Test (for testing before full runs) -->
+  <experiment name="exp0_pilot_test" repetitions="2" runMetricsEveryStep="true">
+    <setup>setup2</setup>
+    <go>go</go>
+    <timeLimit steps="20"/>
+    
+    <!-- Just a few parameter combinations for testing -->
+    <enumeratedValueSet variable="rel-tolerance">
+      <value value="40"/>
+      <value value="60"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-tolerance">
+      <value value="40"/>
+      <value value="60"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-weight">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="birth-rate">
+      <value value="2.5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="death-rate">
+      <value value="1"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="search-radius">
+      <value value="5"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="viz-mode">
+      <value value="&quot;Religion&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="rel-focus">
+      <value value="&quot;Muslim&quot;"/>
+    </enumeratedValueSet>
+    
+    <enumeratedValueSet variable="lang-focus">
+      <value value="&quot;Urdu&quot;"/>
+    </enumeratedValueSet>
+    
+    <!-- Metrics to collect -->
+    <metric>ticks</metric>
+    <metric>count households</metric>
+    <metric>mean [similar-nearby-rel] of households</metric>
+    <metric>mean [similar-nearby-lang] of households</metric>
+  </experiment>
+  
+</experiments>
